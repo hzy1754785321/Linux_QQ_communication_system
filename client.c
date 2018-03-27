@@ -1,5 +1,5 @@
 #include"./fun.h"
-struct conline *chead=NULL;
+#include "link.h"
 
 void *mypack(void *data,int len,int type)
 {
@@ -13,7 +13,6 @@ void *mypack(void *data,int len,int type)
 }
 
 
-
 void person_login(int sockfd)
 {
 	struct person temp;
@@ -23,17 +22,14 @@ void person_login(int sockfd)
 	scanf("%s",temp.passwd);
 	struct pack *p=mypack(&temp,sizeof(temp),1);
 	int ret=write(sockfd,p,sizeof(struct pack)+sizeof(struct person));
+//	send_status(sockfd);
 	if(ret<=0)
 	{
 		printf("write failed %d\n",__LINE__);
 		close(sockfd);
 		exit(0);
 	}
-}
-void recv_login(int sockfd)
-{
-	struct person temp;
-	int ret=read(sockfd,&temp,sizeof(struct person));
+	ret=read(sockfd,&temp,sizeof(struct person));
 	if(ret<=0)
 	{
 		close(sockfd);
@@ -48,6 +44,16 @@ void recv_login(int sockfd)
 		exit(0);
 	}
 }
+/*
+void send_statue(int sockfd)
+{
+	struct msgbuf temp;
+	temp.flag=1;
+	struct pack * p=mypack(&temp,sizeof(struct msgbuf),3);	
+	int ret=write(sockfd,p,sizeof(struct pack)+sizeof(struct msgbuf));
+}
+*/	
+
 void person_register(int sockfd)
 {
 	struct person temp;
@@ -64,11 +70,7 @@ void person_register(int sockfd)
 		close(sockfd);
 		exit(0);
 	}
-}
-void recv_register(int sockfd)
-{
-	struct person temp;
-	int ret=read(sockfd,&temp,sizeof(struct person));
+	ret=read(sockfd,&temp,sizeof(struct person));
 	if(ret<=0)
 	{
 		close(sockfd);
@@ -83,6 +85,7 @@ void recv_register(int sockfd)
 		exit(0);
 	}
 }
+
 
 void menu(int sockfd)
 {
@@ -162,8 +165,17 @@ int  send_all(int sockfd)
 	scanf("%s",temp.buf);
 	temp.id=-1;
 	int ret;
+	struct online *lk;
 	struct pack * p=mypack(&temp,sizeof(struct msgbuf),4);	
 	ret=write(sockfd,p,sizeof(struct pack)+sizeof(struct msgbuf));
+	ret=read(sockfd,lk,sizeof(struct online));
+	printf("test1\n");
+	while(lk!=NULL)
+	{
+			printf("test2\n");
+			printf("id:%d\n",lk->id);
+			lk=lk->next;
+	}
 	if(ret<=0)
 	{
 		printf("write mssage failed\n");
@@ -185,10 +197,10 @@ int  send_message(int sockfd)
 	switch(key)
 	{
 		case 1:if(send_one(sockfd))
-				   return -1;
+				return -1;
 			   break;
 		case 2:if(send_more(sockfd))
-				   return -1;
+				 return -1;
 			   break;
 		case 3:if(send_all(sockfd))
 				   return -1;
@@ -200,82 +212,6 @@ int  send_message(int sockfd)
 	return 0;
 }
 
-void recv_message(int sockfd)
-{
-	struct msgbuf temp;
-	int ret=read(sockfd,&temp,sizeof(struct msgbuf));
-	if(ret<=0)
-	{
-		printf("recv message failed\n");
-		close(sockfd);
-		return ;
-	}
-	else
-		printf("recv %s from %d\n",temp.buf,temp.id);
-
-}
-void recv_online_link(int sockfd)
-{
-	struct DATA data;
-	int ret=read(sockfd,&data,sizeof(struct DATA));
-	if(ret<=0)
-	{
-		printf("recv link failed\n");
-		close(sockfd);
-		return ;
-	}
-	struct conline *temp=(struct conline *)malloc(sizeof(struct conline));
-	temp->data=data;
-	temp->next=chead;
-	chead=temp;
-}
-
-void recv_delete(int sockfd)
-{
-	struct DATA data;
-	int ret=read(sockfd,&data,sizeof(struct DATA));
-	if(ret<=0)
-	{
-		printf("recv link failed\n");
-		close(sockfd);
-		return ;
-	}
-	if(chead==NULL)
-		return ;
-	struct conline *p,*q;
-	if(chead->data.id==data.id)
-	{
-		p=chead->next;
-		free(chead);
-		chead=p;
-		return ;
-	}
-	p=chead;
-	q=p->next;
-	while(q!=NULL)
-	{
-		if(q->data.id==data.id)
-		{
-			p->next=q->next;
-			free(q);
-			return ;
-		}
-		p=p->next;
-		q=q->next;
-	}
-	return ;
-	
-}
-void show_online_link()
-{
-	printf("id\tname\n");
-	struct conline *p=chead;
-	while(p!=NULL)
-	{
-		printf("%d\t%s\n",p->data.id,p->data.name);
-		p=p->next;
-	}
-}
 
 
 int main(int argc,char ** argv)
@@ -304,9 +240,9 @@ int main(int argc,char ** argv)
 	//定义一个IPV4地址族结构
 	struct sockaddr_in saddr;
 	saddr.sin_family=AF_INET;
-	saddr.sin_port=htons(atoi(argv[1]));//将16位的整数由主机字节序转化为网络字节序
+	saddr.sin_port=htons(9002);//将16位的整数由主机字节序转化为网络字节序
 	//将字符串IP转换成4字节整数存放在saddr.sin_addr.s_addr中
-	int ret=inet_pton(AF_INET,"192.168.1.82",&saddr.sin_addr.s_addr);
+	int ret=inet_pton(AF_INET,"192.168.1.52",&saddr.sin_addr.s_addr);
 
 	ret=connect(sockfd,(struct sockaddr *)&saddr,sizeof(saddr));
 
@@ -322,33 +258,17 @@ int main(int argc,char ** argv)
 	pid=fork();
 	if(pid==0)
 	{
-		struct pack p;
 		while(1)
 		{
-			ret=read(sockfd,&p,sizeof(struct pack));
+			ret=read(sockfd,&temp,sizeof(struct msgbuf));
 			if(ret<=0)
 			{
 				printf("recv message failed\n");
 				close(sockfd);
 				return 0;
 			}
-			switch(p.type)
-			{
-				case 1:recv_message(sockfd);
-					   break;
-				case 2:recv_online_link(sockfd);
-					   show_online_link();
-					   break;
-				case 3:recv_login(sockfd);
-					   break;
-				case 4:recv_register(sockfd);
-					   break;
-				case 5:recv_delete(sockfd);
-					   show_online_link();
-					   break;
-
-			}
-
+			else
+				printf("recv %s from %d\n",temp.buf,temp.id);
 		}
 	}
 	else if(pid>0)

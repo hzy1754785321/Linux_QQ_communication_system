@@ -31,37 +31,22 @@ struct person
 struct msgbuf
 {
 	int id;
+	int flag;
 	char buf[20];
 };
 struct online
 {
 	int id;
-	char name[20];
 	int confd;
 	struct online *next;
 };
-
-struct DATA
-{
-	int id;
-	char name[20];
-};
-
-struct conline
-{
-	struct DATA data;
-	struct conline *next;
-};
-
 struct online * head;
 void delete_online(int confd);
 int search_id(int confd);
 int search_confd(int id);
 void show_online();
-void  add_online(struct person p,int confd);
-void *spack(void *,int,int);
-void send_link(int confd,int flag);
-void send_delete(int confd);
+void  add_online(int confd,int id);
+
 #endif
 
 

@@ -1,7 +1,7 @@
 #include"./fun.h"
 char * user="root";
-char * passwd="123456";
-char * database="person";
+char * passwd="1997";
+char * database="qq_data";
 char * server="localhost";
 
 
@@ -22,7 +22,7 @@ void hander_login(int confd)
 		return ;
 	}
 	char sql[100];
-	sprintf(sql,"select * from person where id=%d and passwd=\'%s\'",temp.id,temp.passwd);
+	sprintf(sql,"select * from user where id=%d and passwd=\'%s\'",temp.id,temp.passwd);
 	if(mysql_query(conn,sql))
 	{
 		fprintf(stderr,"%s\n",mysql_error(conn));
@@ -43,14 +43,11 @@ void hander_login(int confd)
 	{
 		strcpy(temp.name,row[1]);
 		temp.flag=1;
-		add_online(temp,confd);
-		send_link(confd,1);
+		add_online(temp.id,confd);
 		system("clear");
 		show_online();
 	}
-	struct pack *q=spack(&temp,sizeof(struct person),3);
-	write(confd,q,sizeof(struct person)+sizeof(struct pack));
-	free(q);
+	write(confd,&temp,sizeof(struct person));
 	mysql_free_result(res);
 	mysql_close(conn);
 }
@@ -72,14 +69,14 @@ void hander_register(int confd)
 	}
 	char sql[100];
 	//sprintf(sql,"select * from person where id=%d and passwd=\'%s\'",temp.id,temp.passwd);
-	sprintf(sql,"insert into person(name,passwd) values(\'%s\',\'%s\')",temp.name,temp.passwd);
+	sprintf(sql,"insert into user(name,passwd) values(\'%s\',\'%s\')",temp.name,temp.passwd);
 	if(mysql_query(conn,sql))
 	{
 		fprintf(stderr,"%s\n",mysql_error(conn));
 		return ;
 	}
 	
-	strcpy(sql,"select max(id) as value from person");
+	strcpy(sql,"select max(id) as value from user");
 	if(mysql_query(conn,sql))
 	{
 		fprintf(stderr,"%s\n",mysql_error(conn));
@@ -103,14 +100,11 @@ void hander_register(int confd)
 	{
 		temp.id=atoi(row[0]);
 		temp.flag=1;
-		add_online(temp,confd);
-		send_link(confd,1);
+		add_online(temp.id,confd);
 		system("clear");
 		show_online();
 	}
-	struct pack * q=spack(&temp,sizeof(struct person),4);
-	write(confd,q,sizeof(struct person)+sizeof(struct pack));
-	free(q);
+	write(confd,&temp,sizeof(struct person));
 	mysql_free_result(res);
 	mysql_close(conn);
 
@@ -124,7 +118,6 @@ void recv_message(int confd)
 	if(ret<=0)
 	{
 		printf("recv mssage failed\n");
-		send_delete(confd);
 		delete_online(confd);
 		system("clear");
 		show_online();
@@ -139,9 +132,7 @@ void recv_message(int confd)
 		return ;
 	}
 	temp.id=search_id(confd);
-	struct pack * q=spack(&temp,sizeof(struct msgbuf),1);
-	write(sendconfd,q,sizeof(struct msgbuf)+sizeof(struct pack));
-	free(q);
+	write(sendconfd,&temp,sizeof(struct msgbuf));
 
 }
 void hander_send_all(int confd)//处理群发
@@ -151,7 +142,6 @@ void hander_send_all(int confd)//处理群发
 	if(ret<=0)
 	{
 		printf("recv mssage failed\n");
-		send_delete(confd);
 		delete_online(confd);
 		system("clear");
 		show_online();
@@ -160,15 +150,34 @@ void hander_send_all(int confd)//处理群发
 	}
 	struct online *p=head;
 	temp.id=search_id(confd);
-	struct pack * q=spack(&temp,sizeof(struct msgbuf),1);
 	while(p!=NULL)
 	{
-		if(p->confd !=confd)
-			write(p->confd,q,sizeof(struct msgbuf)+sizeof(struct pack));
+	//	if(p->confd !=confd)
+			write(p->confd,&temp,sizeof(struct msgbuf));
+			printf("test1\n");
+			write(p->confd,p,sizeof(struct online));
+			printf("test2\n");
 		p=p->next;
 	}
-	free(q);
+	
 }
+
+void send_status(int confd)
+{
+		struct msgbuf temp;
+		read(confd,&temp,sizeof(struct msgbuf));
+		struct online *p=head;
+		temp.flag=1;
+		while(p!=NULL)
+		{
+				if(p->confd!=confd)
+						write(p->confd,&temp,sizeof(struct msgbuf));
+				p=p->next;
+		}
+}
+
+
+
 
 void * fun(void * arg)
 {
@@ -188,7 +197,6 @@ void * fun(void * arg)
 				   break;
 			default:
 						printf("error type %d\n",__LINE__);
-						send_delete(confd);
 						delete_online(confd);
 						system("clear");
 						show_online();
@@ -199,7 +207,6 @@ void * fun(void * arg)
 
 	}
 	printf("client closed %d\n",__LINE__);
-	send_delete(confd);
 	delete_online(confd);
 	system("clear");
 	show_online();
@@ -215,7 +222,6 @@ int main(int argc,char ** argv)
 	head=NULL;
 
 	int listenfd= socket(AF_INET,SOCK_STREAM,0);
-
 	/*
 	   int bind(int sockfd, const struct sockaddr *addr,
 	   socklen_t addrlen);
@@ -225,8 +231,8 @@ int main(int argc,char ** argv)
 	 */
 	struct sockaddr_in myaddr;
 	myaddr.sin_family=AF_INET;
-	myaddr.sin_port=htons(atoi(argv[1]));
-	inet_pton(AF_INET,"192.168.1.82",&myaddr.sin_addr.s_addr);
+	myaddr.sin_port=htons(9002);
+	inet_pton(AF_INET,"192.168.1.52",&myaddr.sin_addr.s_addr);
 
 
 	int ret=bind(listenfd,(struct sockaddr *)&myaddr,sizeof(myaddr));
